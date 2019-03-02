@@ -40,16 +40,16 @@
 # 2.0) Changelog:
 #       v7: now loops on BCS's 'poll' API call (all  dynamic info obtained via single GET instead of 1 GET per probe).
 #       v12: Refactored structure for individual modules.
-#
 
 # ******* SECTION 0 - Program Control *******
-import sys # needed for 'sys.path.insert' to augment the path w/ directories containing my re-use modules (for use)
 tweet_enabled = True    # when "True", program will live-tweet a message and brew status. When "False", program will not attempt to Tweet.
-debug_enabled = True    # when "True", program will print internal status messages to the screen (e.g., counter values). When "False", internal messages are suppressed.
+debug_enabled = False    # when "True", program will print internal status messages to the screen (e.g., counter values). When "False", internal messages are suppressed.
 message_generator_debug_enabled = False    # when "True", program will print message_generator.pl output to screen every iteration. When "False", message is only printed to screen when Tweeted.
 loop_delay = 2  # This dictates how many seconds to delay before looping back through the program.
                 # This same number is used to set the initial value and decrement amount for brew_tweet_delay
                 # and message_delay so that everything decrements in lockset with the loop delay.
+static_message_generator_tweet_delay = 500  # Recommended value = 500 (in seconds, a.k.a. 8.3 minutes)
+static_brew_tweet_delay = 600               # Recommended value = 600 (in seconds, a.k.a. 10 minutes)
 
 
 # ******* SECTION 1: Initialize InfluxDB session: *******
@@ -65,37 +65,41 @@ with open('../twitter_credentials_thirstybot.json') as file:  # see Prerequisite
     twitter_credentials = json.load(file)
 api = init_twitter_api.init_twitter_api(twitter_credentials) # create object ('api') portal to Twitter API
 
+
 # ******* SECTION 3 - Initialize Message Generator *******
 import message_generator    # See Prerequisite 0.1.d.
 
 
 # ******* SECTION 4 - Define Tweet Functions *******
-def lets_tweet_brew(api,first_tweet_flag):       # Live-tweet brew-related stuff
+def lets_tweet_brew(api,first_tweet_flag,active_process_name,current_state_name):       # Live-tweet brew-related stuff
     from time import strftime  # needed for current time
-    #global status
     if first_tweet_flag == 1:  # for static tweets (only runs initially when first_tweet_flag is set to 1)
-        first_tweet_flag = 0  # set flag to 0 so this won't be attempted again
         try:
             first_tweet_part_0 = 'Bleep Blorp. I am programed to brew beer and to love. '
-            first_tweet_part_1 = 'I am currently doing the following: ' + active_process
-            first_tweet = first_tweet_part_0 + first_tweet_part_1
-            status = api.update_status(status=first_tweet) # Tweet low-frequency status
-            print('testing...contents of first tweet status = ' + str(status))
-            print('testing...should have attempted this first tweet :' + str(first_tweet))
+            first_tweet_part_1 = 'My active brew process step is ' + active_process_name
+            first_tweet_part_3 = ' and my active brew process name is ' + current_state_name
+            first_tweet = first_tweet_part_0 + first_tweet_part_1 + first_tweet_part_3
+            api.update_status(status=first_tweet) # Tweet low-frequency status
             print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(first_tweet))
-        except tweepy.error.TweepError:
-            print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented first_tweet')
+        except tweepy.error.TweepError as error:
+            if error.api_code == 187:
+                print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented DUPLICATE first_tweet (error #187)')
+            else:
+                print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented first_tweet')
             pass
-    try:
-        tweet_part_0 = 'Current active brew process name is: ' + active_process_name
-        tweet = tweet_part_0
-        status = api.update_status(status=tweet)  # Tweet recurring brew status
-        print('testing...contents of brew tweet status = ' + str(status))
-        print('testing...should have attempted this brew tweet :' + str(tweet))
-        print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(tweet))
-    except tweepy.error.TweepError:
-        print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented brew tweet')
-        pass
+    else:
+        try:
+            tweet_part_0 = 'My active brew process step is ' + active_process_name
+            tweet_part_1 = ' and my active brew process name is ' + current_state_name
+            tweet = tweet_part_0 + tweet_part_1
+            api.update_status(status=tweet)  # Tweet recurring brew status
+            print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(tweet))
+        except tweepy.error.TweepError as error:
+            if error.api_code == 187:
+                print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented DUPLICATE brew status tweet (error #187)')
+            else:
+                print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented brew tweet')
+            pass
 
 
 # ******* SECTION 5: Continuously get BCS data and write it to the InfluxDB  *******
@@ -211,14 +215,16 @@ while True:  # this loops forever (until manually stopped), pausing for duration
     if tweet_enabled == True:
         import message_tweeter  # See Prerequisite 0.1.d.
         if message_delay <= 0:  # if delay has decremented to 0, then try tweeting (and reset delay)
-            message_delay = 500 # reset message delay to specified number (e.g. 500)
+            message_delay = static_message_generator_tweet_delay # reset message delay to value specified in program control
             message_tweeter.lets_tweet_message(api)
         else:
             print('not supposed to tweet message now because message_delay is ' + str(message_delay))
             message_delay = message_delay - loop_delay
         if brew_tweet_delay <= 0:
-            brew_tweet_delay = 600 # reset brew tweet delay to specified number (e.g. 600)
-            lets_tweet_brew(api,first_tweet_flag)  # Attempt to tweet about brewing via "lets_tweet_brew" method, passing it the value of first_tweet_flag (if=1, then add'l stuff gets tweeted).
+            brew_tweet_delay = static_brew_tweet_delay # reset brew tweet delay to value specified in program control
+            lets_tweet_brew(api,first_tweet_flag,active_process_name,current_state_name)  # Tweet about brewing
+            first_tweet_flag = 0
+            print('first_tweet_flag = ' + str(first_tweet_flag))
         else:
             print('not supposed to brew tweet now because brew_tweet_delay is ' + str(brew_tweet_delay))
             brew_tweet_delay = brew_tweet_delay - loop_delay
