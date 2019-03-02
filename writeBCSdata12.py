@@ -8,7 +8,9 @@
 #                'pip install tweepy' in the environment's terminal window).
 #                Tweepy API definition: 'http://docs.tweepy.org/en/latest/api.html'
 #        0.1.c) Python module 'influxdb_init.py' shall be present in the active Python environment.
-#        0.1.d) Python module 'message_generator.py' shall be present in the active Python environment.
+#        0.1.d) Python module 'message_generator.py' shall be present a /message_generator/ that at the same level as
+#               the Thirsty Bot program's folder. The reason it isn't just in this same folder is b/c I use it in
+#               other Python files, so it exists as it's own project.
 #    0.2) Configuration Dependencies:
 #        0.2.a) InfluxDB shall be installed; InfluxDB shall be running (e.g., by running this in a terminal window:
 #                'C:\Users\User\Downloads\00 Brewing\influxdb-1.5.2-1\influxd.exe'.
@@ -33,8 +35,8 @@
 #       v12: Refactored structure for individual modules.
 
 # ******* SECTION 0 - Program Control *******
-tweet_enabled = False    # when "True", program will live-tweet a message and brew status. When "False", program will not attempt to Tweet.
-debug_enabled = True    # when "True", program will print internal status messages to the screen (e.g., counter values). When "False", internal messages are suppressed.
+tweet_enabled = True    # when "True", program will live-tweet a message and brew status. When "False", program will not attempt to Tweet.
+debug_enabled = False    # when "True", program will print internal status messages to the screen (e.g., counter values). When "False", internal messages are suppressed.
 message_debug_enabled = True    # when "True", program will print message_generator.pl output to screen every iteration. When "False", message is only printed to screen when Tweeted.
 
 
@@ -46,12 +48,14 @@ influxdb_init.init_influxdb(target_database='BCS5',host='localhost', port=8086)
 # ******* SECTION 2 - Twitter Integration *******
 import tweepy               # import tweepy Twitter API
 import json
-import message_generator    # See Prerequisite #4c.
+import sys # needed in order to temporarily add the path in which message_generator is located (so it can be imported)
+sys.path.insert(0, '../message_generator/') # temporarily add path where message_generator.py exists.
+import message_generator    # See Prerequisite 0.1.d.; Ignore PyCharm error
 def get_api(twitter_credentials_thirstybot):  # initialize Twitter account access
     auth = tweepy.OAuthHandler(twitter_credentials_thirstybot['consumer_key'], twitter_credentials_thirstybot['consumer_secret'])
     auth.set_access_token(twitter_credentials_thirstybot['access_token'], twitter_credentials_thirstybot['access_token_secret'])
     return tweepy.API(auth)
-with open('../''twitter_credentials_thirstybot.json') as file:
+with open('../''twitter_credentials_thirstybot.json') as file:  # see Prerequisites 0.2.e
     twitter_credentials_thirstybot = json.load(file)
 api = get_api(twitter_credentials_thirstybot) # Pass @thirstybot's Twitter keys to Twitter API, and store as 'api'
 # global api  # oops, can't do this
@@ -70,9 +74,10 @@ def lets_tweet_brew(tweet_brew_delay):       # Live-tweet brew-related stuff
     if first_tweet_flag == 1:  # for low-frequency tweets (only runs when first_tweet_flag is set to 1)
         first_tweet_flag = 0  # set flag to 0 so this won't be attempted again
         try:
-            first_tweet_part_0 = 'Bleep Blorp. I am programed to brew beer and to love. I am currently doing the following:' + active_process
+            first_tweet_part_0 = 'Bleep Blorp. I am programed to brew beer and to love. I am currently doing the following: ' + active_process
             first_tweet = first_tweet_part_0
             status = api.update_status(status=first_tweet) # Tweet low-frequency status
+            #print(first_tweet)
             print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(first_tweet))
         except tweepy.error.TweepError:
             print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented first_tweet')
@@ -83,9 +88,10 @@ def lets_tweet_brew(tweet_brew_delay):       # Live-tweet brew-related stuff
             tweet_part_0 = 'Current active brew process name is: ' + active_process_name
             tweet = tweet_part_0
             status = api.update_status(status=tweet)  # Tweet recurring status
+            #print(tweet)
             print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(tweet))
         except tweepy.error.TweepError:
-            print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented meat tweet')
+            print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented brew tweet')
             pass
     else:
         pass  # if counter doesn't indicate 'time to tweet' (i.e., counter > 0), then do nothing
