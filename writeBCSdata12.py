@@ -1,4 +1,5 @@
-# Thirsty Bot, version 12.
+# Thirsty Bot: This program gets status from the BCS API, writes it to an InfluxDB database (for external
+# visualization (e.g., Grafana) and data-logging purposes), and live-tweets brew session info.
 # 0.0) Prerequisites
 #    0.1) Python Dependencies:
 #        0.1.a) Python package 'influxdb' shall be installed into the active Python environment (e.g., by running
@@ -7,12 +8,14 @@
 #        0.1.b) Python package 'tweepy' shall be installed into the active Python environment (e.g., by running
 #                'pip install tweepy' in the environment's terminal window).
 #                Tweepy API definition: 'http://docs.tweepy.org/en/latest/api.html'
-#        0.1.c) Python module 'influxdb_init.py' shall be present in the active Python environment.
-#        0.1.d) Python module 'message_generator.py' shall be present a /message_generator/ that at the same level as
-#               the Thirsty Bot program's folder. The reason it isn't just in this same folder is b/c I use it in
-#               other Python files, so it exists as it's own project.
-#        0.1.e) Python module 'init_twitter_api' shall be present in the active Python environment. This module accepts
-#               JSON-formatted Twitter credentials key:values, and returns a usable Twitter API.
+#        0.1.c) Python module 'init_influxdb.py' shall be present in the active Python environment path (possibly in
+#                a Common directory, since this module is used in other unrelated Projects).
+#        0.1.d) Python module 'message_generator.py' and 'message_tweeter.py' shall be present
+#               in the active Python environment path (possibly in a Common directory, since this module is used in
+#               other unrelated Projects).
+#        0.1.e) Python module 'init_twitter_api' shall be present in the active Python environment path (possibly in
+#               a Common directory, since this module is used in other unrelated Projects). This module accepts
+#               JSON-formatted Twitter credentials (key:values), and returns a usable Twitter API.
 #    0.2) Configuration Dependencies:
 #        0.2.a) InfluxDB shall be installed; InfluxDB shall be running (e.g., by running this in a terminal window:
 #                'C:\Users\User\Downloads\00 Brewing\influxdb-1.5.2-1\influxd.exe'.
@@ -30,21 +33,28 @@
 #                'http://stackabuse.com/accessing-the-twitter-api-with-python/',
 #                'http://nodotcom.org/python-twitter-tutorial.html'.
 # 1.0) Run-time notes:
-#    1.1) USAGE:
+#   1.1) Usage:
+#       1.1.1) standalone?: Yes.
 #           >>> 'exec(open('writeBCSdata12.py').read())'
+#       1.1.2) call from another module?: No.
 # 2.0) Changelog:
 #       v7: now loops on BCS's 'poll' API call (all  dynamic info obtained via single GET instead of 1 GET per probe).
 #       v12: Refactored structure for individual modules.
+#
 
 # ******* SECTION 0 - Program Control *******
+import sys # needed for 'sys.path.insert' to augment the path w/ directories containing my re-use modules (for use)
 tweet_enabled = True    # when "True", program will live-tweet a message and brew status. When "False", program will not attempt to Tweet.
-debug_enabled = False    # when "True", program will print internal status messages to the screen (e.g., counter values). When "False", internal messages are suppressed.
-message_debug_enabled = True    # when "True", program will print message_generator.pl output to screen every iteration. When "False", message is only printed to screen when Tweeted.
+debug_enabled = True    # when "True", program will print internal status messages to the screen (e.g., counter values). When "False", internal messages are suppressed.
+message_generator_debug_enabled = False    # when "True", program will print message_generator.pl output to screen every iteration. When "False", message is only printed to screen when Tweeted.
+loop_delay = 2  # This dictates how many seconds to delay before looping back through the program.
+                # This same number is used to set the initial value and decrement amount for brew_tweet_delay
+                # and message_delay so that everything decrements in lockset with the loop delay.
 
 
 # ******* SECTION 1: Initialize InfluxDB session: *******
-import influxdb_init
-influxdb_init.init_influxdb(target_database='BCS5',host='localhost', port=8086)
+import init_influxdb
+init_influxdb.init_influxdb(target_database='BCS5',host='localhost', port=8086)
 
 
 # ******* SECTION 2 - Initialize Twitter API *******
@@ -56,66 +66,41 @@ with open('../twitter_credentials_thirstybot.json') as file:  # see Prerequisite
 api = init_twitter_api.init_twitter_api(twitter_credentials) # create object ('api') portal to Twitter API
 
 # ******* SECTION 3 - Initialize Message Generator *******
-import sys # needed in order to temporarily add the path in which message_generator is located (so it can be imported)
-sys.path.insert(0, '../message_generator/') # temporarily add path where message_generator.py exists.
-import message_generator    # See Prerequisite 0.1.d.; Ignore PyCharm error
+import message_generator    # See Prerequisite 0.1.d.
 
 
 # ******* SECTION 4 - Define Tweet Functions *******
-def lets_tweet_brew(tweet_brew_delay):       # Live-tweet brew-related stuff
+def lets_tweet_brew(api,first_tweet_flag):       # Live-tweet brew-related stuff
     from time import strftime  # needed for current time
-    global tweet_counter
-    global first_tweet_flag
-    global first_tweet
-    global status
-    tweet_counter = tweet_counter - 2        # decrement by 2 to match the loop delay of 2 seconds (goal: decrement equivalent to once per second))
-    if first_tweet_flag == 1:  # for low-frequency tweets (only runs when first_tweet_flag is set to 1)
+    #global status
+    if first_tweet_flag == 1:  # for static tweets (only runs initially when first_tweet_flag is set to 1)
         first_tweet_flag = 0  # set flag to 0 so this won't be attempted again
         try:
-            first_tweet_part_0 = 'Bleep Blorp. I am programed to brew beer and to love. I am currently doing the following: ' + active_process
-            first_tweet = first_tweet_part_0
+            first_tweet_part_0 = 'Bleep Blorp. I am programed to brew beer and to love. '
+            first_tweet_part_1 = 'I am currently doing the following: ' + active_process
+            first_tweet = first_tweet_part_0 + first_tweet_part_1
             status = api.update_status(status=first_tweet) # Tweet low-frequency status
-            #print(first_tweet)
+            print('testing...contents of first tweet status = ' + str(status))
+            print('testing...should have attempted this first tweet :' + str(first_tweet))
             print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(first_tweet))
         except tweepy.error.TweepError:
             print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented first_tweet')
             pass
-    if tweet_counter <= 0:  # if counter has decremented to 0, then try tweeting (and reset counter))
-        tweet_counter = tweet_brew_delay  # reset counter to value specified in method call; the larger the value, the less frequent the tweeting
-        try:
-            tweet_part_0 = 'Current active brew process name is: ' + active_process_name
-            tweet = tweet_part_0
-            status = api.update_status(status=tweet)  # Tweet recurring status
-            #print(tweet)
-            print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(tweet))
-        except tweepy.error.TweepError:
-            print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented brew tweet')
-            pass
-    else:
-        pass  # if counter doesn't indicate 'time to tweet' (i.e., counter > 0), then do nothing
-
-
-def lets_tweet_message(message_delay):                    # Live-tweet a random message
-    global message_counter
-    message_counter = message_counter - 2                 # decrement by 2 to match the loop delay of 2 seconds (goal: decrement equivalent to once per second))
-    if message_counter <= 0:                              # if counter has decremented to 0, then try tweeting (and reset counter))
-        message_counter = message_delay                   # reset counter to value specified in method call; the larger the value, the less frequent the tweeting
-        try:
-            message_generator.define_words()              # Initializes the word dictionary.
-            all_jobs = message_generator.message()  # Builds list of jobs (w/o preable) from random words in word dictionary
-            message = message_generator.respond_one()  # Returns a single randomly chosen message from the message list (with default reamble) and store it in "message"
-            status = api.update_status(status=message)    # tweet random message stored in "message"; disable this line to prevent actual tweeting (but all other code will execute)
-            print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(message))
-        except tweepy.error.TweepError:
-            print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented message tweet')
-            pass
-    else:
-        pass                                              # if counter doesn't indicate 'time to tweet' (i.e., counter > 0), then do nothing
+    try:
+        tweet_part_0 = 'Current active brew process name is: ' + active_process_name
+        tweet = tweet_part_0
+        status = api.update_status(status=tweet)  # Tweet recurring brew status
+        print('testing...contents of brew tweet status = ' + str(status))
+        print('testing...should have attempted this brew tweet :' + str(tweet))
+        print(strftime("%Y-%m-%d %H:%M:%S") + ' - Successfully tweeted: ' + str(tweet))
+    except tweepy.error.TweepError:
+        print(strftime("%Y-%m-%d %H:%M:%S") + ' - TweepError prevented brew tweet')
+        pass
 
 
 # ******* SECTION 5: Continuously get BCS data and write it to the InfluxDB  *******
-tweet_counter = 1      # initialize brew tweet counter; the "lets_tweet_brew" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
-message_counter = 1    # initialize random message tweeter counter; the "lets_tweet_message" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
+brew_tweet_delay = loop_delay
+message_delay = loop_delay    # initialize random message tweeter counter; the "lets_tweet_message" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
 first_tweet_flag = 1   # initialize first tweet flag for low-frequency tweeting (e.g., brew names); tweet only attempted when flag = 1, then it's set to 0
 
 import requests  # needed for get
@@ -127,7 +112,7 @@ probe0_json = requests.get(BCS_IP + '/api/temp/0').json() # get temperature prob
 probe1_json = requests.get(BCS_IP + '/api/temp/1').json() # get temperature probe 1 (HERMS) semi-static data (not polled from BCS) and store in JSON string.
 probe2_json = requests.get(BCS_IP + '/api/temp/2').json() # get temperature probe 2 (Boil) semi-static data (not polled from BCS) and store in JSON string.
 probe7_json = requests.get(BCS_IP + '/api/temp/7').json() # get temperature probe 7 (MLT) semi-static data (not polled from BCS) and store in JSON string.
-while True:  # this loops forever (until manually stopped), pausing 2 seconds in between loops
+while True:  # this loops forever (until manually stopped), pausing for duration=loop_delay (i.e., 2 sec) between loops
     poll = requests.get(BCS_IP + '/api/poll').json()
     process_0 = requests.get(BCS_IP + '/api/process/0').json()
     process_1 = requests.get(BCS_IP + '/api/process/1').json()
@@ -222,23 +207,31 @@ while True:  # this loops forever (until manually stopped), pausing 2 seconds in
             "local_time": strftime("%Y-%m-%d %H:%M:%S")
         }
     }]
-    influxdb_init.client.write_points(json_body)  # writes the JSON object to InfluxDB
-    print('As of ' + strftime("%Y-%m-%d %H:%M:%S") + ' ' + active_process)
-    time.sleep(2)   # delays for 2 seconds before looping
-    #
-    # Debug functions
-    #
+    init_influxdb.client.write_points(json_body)  # writes the JSON object to InfluxDB
     if tweet_enabled == True:
-        lets_tweet_brew(
-            600)  # Attempt to tweet via "lets_tweet_brew" method with a delay specified with the "( )" (e.g. 600).
-        lets_tweet_message(
-            500)  # Attempt to tweet random message via "lets_tweet_message" method with a delay specified with the "( )"  (e.g. 700).
+        import message_tweeter  # See Prerequisite 0.1.d.
+        if message_delay <= 0:  # if delay has decremented to 0, then try tweeting (and reset delay)
+            message_delay = 500 # reset message delay to specified number (e.g. 500)
+            message_tweeter.lets_tweet_message(api)
+        else:
+            print('not supposed to tweet message now because message_delay is ' + str(message_delay))
+            message_delay = message_delay - loop_delay
+        if brew_tweet_delay <= 0:
+            brew_tweet_delay = 600 # reset brew tweet delay to specified number (e.g. 600)
+            lets_tweet_brew(api,first_tweet_flag)  # Attempt to tweet about brewing via "lets_tweet_brew" method, passing it the value of first_tweet_flag (if=1, then add'l stuff gets tweeted).
+        else:
+            print('not supposed to brew tweet now because brew_tweet_delay is ' + str(brew_tweet_delay))
+            brew_tweet_delay = brew_tweet_delay - loop_delay
+    time.sleep(loop_delay)  # pause for duration of loop_delay (i.e., 2 sec); will then loop
+    #
+    # Debug-only functions
+    #
     if debug_enabled == True:
-        print('debug (verbose output to screen) is enabled')
-        print('the tweet counter = ' + str(tweet_counter))  # debug: monitor the meat tweet counter value
-        print('the message counter = ' + str(message_counter))  # debug: monitor the message tweet counter value
-    if message_debug_enabled == True:
-        message_generator.define_words()  # Initializes the word dictionary.
-        all_jobs = message_generator.message()  # Builds list of jobs (w/o preable) from random words in word dictionary
-        message = message_generator.respond_one()  # Returns a single randomly chosen message from the message list (with default reamble) and store it in "message"
-        print(message)
+        print('Debug enabled...message_delay = ' + str(message_delay))  # debug: monitor the brew tweet counter value
+        print('Debug enabled...brew_tweet_delay = ' + str(brew_tweet_delay))  # debug: monitor the message tweet counter value
+        print('As of ' + strftime("%Y-%m-%d %H:%M:%S") + ' ' + active_process)
+    if message_generator_debug_enabled == True: # only for troubleshooting (or up-sampling) message_generator outputs
+        words = message_generator.define_words()  # Initializes the word dictionary.
+        all_jobs = message_generator.message(words)  # Builds list of jobs (w/o preable) from random words in word dictionary
+        message = message_generator.respond_one(all_jobs)  # Returns a single randomly chosen message from the message list (with default reamble) and store it in "message"
+        print('Message debug enabled...message_generator screen-output (not to Twitter): ' + str(message))

@@ -1,31 +1,39 @@
-"""
-Message Generator, Version 1.0.
-Note: this can be run standalone (e.g., within Python IDLE using "exec(open('message_generator.py').read())") or it
-can be called from another program by doing the following:
-    >>> import message_generator            # Initializes the module (run once).
-    >>> message_generator.define_words()    # Initializes the word dictionary.
-    >>> all_jobs = message_generator.message()  # Builds list of jobs (w/o preable) from random words in word dictionary
-IF desired operation is to return a single message, then:
-    >>> message = message_generator.respond_one()  # Returns a single randomly chosen message from the message list,
-                                                   # which can then be printed ('print(message)'), etc..
-                                                   # If no argument string specified, will insert the default 
-                                                   # preamble ('I am also programmed to ').
-ELSE IF desired operation is to return ALL the randomized messages, then:
-    >>> all_messages = message_generator.respond_all()  # Returns a list containing all messages.
-                                                        # If no argument string specified, will insert the default 
-                                                        # preamble ('I am also programmed to ').
-IN ADDITION IF desired operation is to also print all the randomized messages, then add:
-    >>> for x in range(0,len(all_messages)):
-    >>>     print(all_messages[x])
-"""
+# Message Generator: This module generates randomized/silly messages (it can output a single message or all of
+# the defined messages for the randomly chosen words).
+# 0.0) Prerequisites:
+#   0.1) Python Dependencies: none.
+#   0.2) Configuration Dependencies: none.
+# 1.0) Run-time notes:
+#   1.1) Usage:
+#       1.1.1) standalone?: Yes (e.g., within Python IDLE using "exec(open('message_generator.py').read())"). This
+#               will print all of the defined messages for the randomly chosen words to the screen.
+#       1.1.2) call from another module?: Yes, by doing the following from the calling module:
+#               >>> import message_generator  # Initializes the module (run once).
+#               >>> message_generator.define_words() # Initializes the word dictionary.
+#               >>> all_jobs = message_generator.message()  # Builds jobs list (w/o preable) from random words in word dictionary
+#             1.1.2.a) IF desired operation is to return a single message, then add this:
+#                   >>> message = message_generator.respond_one()
+#                                                    # This returns a single randomly chosen message from the message
+#                                                    # list via object 'message'.
+#             1.1.2.b ELSE IF desired operation is to return all the defined messages, then add this:
+#                   >>> all_messages = message_generator.respond_all()
+#                                                    # This returns a Python list containing ALL defined messages via
+#                                                    # object all_messages. One COULD then print all these messages
+#                                                    # to screen via: >>> for x in range(0,len(all_messages)):
+#                                                    #                >>>   print(all_messages[x])
+#             1.1.2.c If the calling module does not specify a 'statement_preamble' argument value (string) (for either
+#                   'respond_one()' or 'respond_all()'), then the returned message(s) will contain the default
+#                    preamble ('I am also programmed to ').
+# 2.0) Changelog:
+#       Version 1.0: Original version.
+#
 
 import random
 def define_words():
-    """This function defines the dictionary (called 'words') of possible words to select from. The dictionary values
-    are grouped by the TYPE of word (e.g., a certain kind of verb, plural nouns, singular nous) so that each type
-    word makes sense in the context of its placement in a sentence (regardless of which word is chosen within each
-    word type."""
-    global words
+    """ This function defines the 'words' dictionary of possible words from which to select . The dictionary values
+    are grouped by the word type (e.g., a certain kind of verb, plural nouns, singular nous, etc.) so that each word
+    type makes sense in the context of its placement in a sentence (regardless of which word is chosen within each
+    word type. """
     words = {
         # verb - do something TO an object:
         "walk":["replicate","rescue","juggle","protest","council","raise","tenderize","mennace","disturb","persuade",
@@ -111,7 +119,7 @@ def define_words():
                 "underwear","vests"],
         # noun - MUSIC genre:
         "music":["acid rock","alternative rock","art rock","avant-garde jazz","bebop","death metal","boogie-woogie",
-                 "britpop","celtic metal","celtic punk","christian metal","christian punk","christian rock",
+                 "britpop","celtic metal","celtic punk","Christian metal","Christian punk","Christian rock",
                  "contemporary folk","cosmic disco","dance-pop","dance-rock","deep house","disco","dixieland",
                  "doom metal","dubstep","emo","eurodance","experimental rock","folk metal","folk rock",
                  "funk metal","funk","garage rock","glam metal","glam rock","gothic metal","gothic rock","grunge",
@@ -229,7 +237,7 @@ def define_words():
                       "","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",
                       "","","","","","","","","","","","","","",""],
         # INACTIVE adverb - for use AFTER the verb:
-        "subtle_directions":[" (slowly)"," (cautiously)","","","","","","","","","","","","","","","","","","","","",
+        "subtle_directions":[" (slowly) "," (cautiously) ","","","","","","","","","","","","","","","","","","","","",
                              "","","","","","","","","","","","","","","","","","","","","","","","","","","","",""],
         # adjective - CONDITION:
         "damaged":["damaged","superb","exquisite","adorable","beautiful","elegant","handsome","magnificent",
@@ -244,10 +252,11 @@ def define_words():
         "one_thru_nine":["1","2","3","4","5","6","7","8","9"],
         "one_thru_two":["1","2"]
     }
+    return words
 
 
-def message():
-    """This function randomly selects a word from each type of word found in the 'words' dictionary."""
+def message(words):
+    """ This function randomly selects a word from each word-type found in the 'words' dictionary."""
     walk = random.choice(words['walk'])
     make = random.choice(words['make'])
     destabilize = random.choice(words['destabilize'])
@@ -284,9 +293,6 @@ def message():
     culture = random.choice(words['culture'])
     one_thru_nine = random.choice(words['one_thru_nine'])
     one_thru_two = random.choice(words['one_thru_two'])
-    #global statement_preamble
-    #statement_preamble = "I am also programmed to "   # other opening phrases I have used: "Also, you should know that I am ...", "Aside from smoking meats, I am ...", "Also, I am ..." 
-    global all_jobs
     all_jobs = [
         "create dank memes featuring " + famous_person + " riding a " + dog,
         "post fake news stories about " + famous_person + " talking dirty to " + dogs,
@@ -339,9 +345,9 @@ def message():
         "" + blog + " about " + person,
         "" + blog + " about " + things,
         "" + blog + " about " + silence,
-        "" + directions + " " + walk + " " + dogs,
-        "" + directions + " " + walk + " " + things,
-        "" + directions + " " + walk + " " + person,
+        "" + directions + "" + walk + " " + dogs,
+        "" + directions + "" + walk + " " + things,
+        "" + directions + "" + walk + " " + person,
         "" + make + " " + damaged + " " + hats + " for " + dogs,
         "" + make + " " + damaged + " " + hats + " for " + person,
         "" + make + " " + damaged + " " + things + " for " + dogs,
@@ -367,23 +373,29 @@ def message():
     return all_jobs
 
 
-def respond_one(statement_preamble="I am also programmed to "):
-    """This function returns a single generated statement."""
+def respond_one(all_jobs,statement_preamble="I am also programmed to "):
+    """This function returns a single generated message. You must pass it the 'all_jobs' object (output of internal
+    function 'message()'). The default preamble ('I am also programmed to ' is pre-pended unless otherwise specified
+    (other preambles I have used are 'Also, you should know that I am ', 'Aside from <activity>,
+    I am ', "Also, I am '). """
     return(statement_preamble + random.choice(all_jobs))
 
 
-def respond_all(statement_preamble="I am also programmed to "):
-    """This function returns all generated statements."""
+def respond_all(all_jobs,statement_preamble="I am also programmed to "):
+    """ This function returns a list ('all_messages') that contains all the defined statements. You must pass it
+      the 'all_jobs' object (output of internal function 'message()'). The default preamble ('I am also programmed to ')
+       is pre-pended unless otherwise specified. """
     all_messages = []
     for x in all_jobs:                     # for all items in the list...
         all_messages.append(str(statement_preamble) + x)
-        #print(str(statement_preamble) + x)  # ...print the message. This outputs all lines
     return all_messages
 
 
-if __name__ == '__main__':  # if executed stand-alone, will output all lines using randomly chosen words
-    define_words()          # generate the dictionary from which to choose words
-    message()               # randomly choose one word of each word-type and populate list of statements
-    all_messages = respond_all()
-    for x in range(0, len(all_messages)):
+if __name__ == '__main__':
+    """ When executed stand-alone, the module will call the internal 'respond_all' function and print all the defined
+    messages to the screen. """
+    words = define_words()  # generate the dictionary from which to choose words and store in 'words' object.
+    all_jobs = message(words)   # randomly choose one word of each word-type and create list of job statements
+    all_messages = respond_all(all_jobs)    # return list of all messsages with a preable prepended
+    for x in range(0, len(all_messages)):   # print all messages to screen
         print(all_messages[x])
