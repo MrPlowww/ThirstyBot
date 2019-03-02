@@ -11,6 +11,8 @@
 #        0.1.d) Python module 'message_generator.py' shall be present a /message_generator/ that at the same level as
 #               the Thirsty Bot program's folder. The reason it isn't just in this same folder is b/c I use it in
 #               other Python files, so it exists as it's own project.
+#        0.1.e) Python module 'init_twitter_api' shall be present in the active Python environment. This module accepts
+#               JSON-formatted Twitter credentials key:values, and returns a usable Twitter API.
 #    0.2) Configuration Dependencies:
 #        0.2.a) InfluxDB shall be installed; InfluxDB shall be running (e.g., by running this in a terminal window:
 #                'C:\Users\User\Downloads\00 Brewing\influxdb-1.5.2-1\influxd.exe'.
@@ -45,25 +47,21 @@ import influxdb_init
 influxdb_init.init_influxdb(target_database='BCS5',host='localhost', port=8086)
 
 
-# ******* SECTION 2 - Twitter Integration *******
-import tweepy               # import tweepy Twitter API
-import json
+# ******* SECTION 2 - Initialize Twitter API *******
+import tweepy  # Twitter API interface module
+import json  # required to parse Twitter credentials file
+import init_twitter_api  # see Prerequisite 0.1.e (Twitter API init module)
+with open('../twitter_credentials_thirstybot.json') as file:  # see Prerequisites 0.2.e (@thirstybot's Twitter keys)
+    twitter_credentials = json.load(file)
+api = init_twitter_api.init_twitter_api(twitter_credentials) # create object ('api') portal to Twitter API
+
+# ******* SECTION 3 - Initialize Message Generator *******
 import sys # needed in order to temporarily add the path in which message_generator is located (so it can be imported)
 sys.path.insert(0, '../message_generator/') # temporarily add path where message_generator.py exists.
 import message_generator    # See Prerequisite 0.1.d.; Ignore PyCharm error
-def get_api(twitter_credentials_thirstybot):  # initialize Twitter account access
-    auth = tweepy.OAuthHandler(twitter_credentials_thirstybot['consumer_key'], twitter_credentials_thirstybot['consumer_secret'])
-    auth.set_access_token(twitter_credentials_thirstybot['access_token'], twitter_credentials_thirstybot['access_token_secret'])
-    return tweepy.API(auth)
-with open('../''twitter_credentials_thirstybot.json') as file:  # see Prerequisites 0.2.e
-    twitter_credentials_thirstybot = json.load(file)
-api = get_api(twitter_credentials_thirstybot) # Pass @thirstybot's Twitter keys to Twitter API, and store as 'api'
-# global api  # oops, can't do this
-tweet_counter = 1      # initialize brew tweet counter; the "lets_tweet_brew" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
-message_counter = 1    # initialize random message tweeter counter; the "lets_tweet_message" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
-first_tweet_flag = 1   # initialize first tweet flag for low-frequency tweeting (e.g., brew names); tweet only attempted when flag = 1, then it's set to 0
 
 
+# ******* SECTION 4 - Define Tweet Functions *******
 def lets_tweet_brew(tweet_brew_delay):       # Live-tweet brew-related stuff
     from time import strftime  # needed for current time
     global tweet_counter
@@ -115,7 +113,11 @@ def lets_tweet_message(message_delay):                    # Live-tweet a random 
         pass                                              # if counter doesn't indicate 'time to tweet' (i.e., counter > 0), then do nothing
 
 
-# ******* SECTION 2: Continuously get BCS data and write it to the InfluxDB  *******
+# ******* SECTION 5: Continuously get BCS data and write it to the InfluxDB  *******
+tweet_counter = 1      # initialize brew tweet counter; the "lets_tweet_brew" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
+message_counter = 1    # initialize random message tweeter counter; the "lets_tweet_message" method decrements this and attempts a tweet when it's <= 0 (and then re-sets it)
+first_tweet_flag = 1   # initialize first tweet flag for low-frequency tweeting (e.g., brew names); tweet only attempted when flag = 1, then it's set to 0
+
 import requests  # needed for get
 #import datetime  # needed for current time
 from time import gmtime, strftime # needed for current time
