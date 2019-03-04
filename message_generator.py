@@ -9,18 +9,19 @@
 #               will print all of the defined messages for the randomly chosen words to the screen.
 #       1.1.2) call from another module?: Yes, by doing the following from the calling module:
 #               >>> import message_generator  # Initializes the module (run once).
-#               >>> message_generator.define_words() # Initializes the word dictionary.
-#               >>> all_jobs = message_generator.message()  # Builds jobs list (w/o preable) from random words in word dictionary
+#               >>> words = message_generator.define_words() # Returns the 'words' dictionary of all possibilities.
+#               >>> all_jobs = message_generator.message(words)  # Returns the defined list of statements ('all_jobs')
+#                   without a preamble by picking random words from the 'words' dictionary.
 #             1.1.2.a) IF desired operation is to return a single message, then add this:
-#                   >>> message = message_generator.respond_one()
-#                                                    # This returns a single randomly chosen message from the message
-#                                                    # list via object 'message'.
+#                   >>> requested_tweet = message_generator.respond_one(all_jobs)
+#                          # Randomly chooses a single statement from the list, prepends a preable, and returns it as
+#                          # a string-formatted object (if purpose is to tweet it, one might save it as
+#                          # 'requested_tweet' and subsequently pass it to the 'tweet.py' module.
 #             1.1.2.b ELSE IF desired operation is to return all the defined messages, then add this:
-#                   >>> all_messages = message_generator.respond_all()
-#                                                    # This returns a Python list containing ALL defined messages via
-#                                                    # object all_messages. One COULD then print all these messages
-#                                                    # to screen via: >>> for x in range(0,len(all_messages)):
-#                                                    #                >>>   print(all_messages[x])
+#                   >>> all_messages = message_generator.respond_all(all_jobs)
+#                          # Prepends a premble to ALL statements, entering each into a Python list. One COULD then
+#                          # print all these messages to screen via: >>> for x in range(0,len(all_messages)):
+#                                                                    >>>   print(all_messages[x])
 #             1.1.2.c If the calling module does not specify a 'statement_preamble' argument value (string) (for either
 #                   'respond_one()' or 'respond_all()'), then the returned message(s) will contain the default
 #                    preamble ('I am also programmed to ').
